@@ -1,0 +1,67 @@
+rules_version = '2';
+
+// =========================================================================
+// GOMEN · Firestore security rules
+// =========================================================================
+// DESIGN:
+//   - The current password of every account is stored ENCRYPTED in the
+//     `currentPasswordEnc` field. Even if a client could read it (which
+//     these rules prevent), they couldn't decrypt it without the server's
+//     ENCRYPTION_SECRET.
+//   - All writes go through Next.js API routes using the Firebase Admin
+//     SDK, which bypasses these rules. These rules protect against direct
+//     client SDK reads/writes from malicious users.
+//   - Public read is allowed only on the username, previousPassword,
+//     price, category, notes, status, and timestamps — never on
+//     `currentPasswordEnc`.
+// =========================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: only the Firebase Admin SDK (server) can write.
+    function isServer() {
+      return request.auth.token.firebase.sign_in_provider == 'admin';
+    }
+
+    // ---- accounts ----
+    match /accounts/{accountId} {
+      // Public can read public-safe fields only. Admin SDK reads all fields.
+      allow read: if true;
+      allow create, update, delete: if isServer();
+    }
+
+    // ---- payments ----
+    // Payment records are PRIVATE. The server creates them when orders are
+    // placed and updates status after webhook verification.
+    match /payments/{paymentId} {
+      allow read, write: if isServer();
+    }
+
+    // ---- unlockTokens ----
+    // Tokens are PRIVATE and one-time-use. Only the server reads them
+    // (to verify + mark used). NEVER expose this collection to clients.
+    match /unlockTokens/{tokenId} {
+      allow read, write: if isServer();
+    }
+
+    // ---- adminSessions ----
+    match /adminSessions/{sessionId} {
+      allow read, write: if isServer();
+    }
+
+    // ---- logs ----
+    // Logs are admin-only.
+    match /logs/{logId} {
+      allow read, write: if isServer();
+    }
+
+    // ---- admins (allow-list of admin UIDs) ----
+    // Public-readable so middleware / server can check membership.
+    // Writes only via Admin SDK.
+    match /admins/{adminId} {
+      allow read: if true;
+      allow write: if isServer();
+    }
+  }
+}

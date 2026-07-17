@@ -1,0 +1,72 @@
+// Gomen Prisma Schema
+// Production uses Firebase Firestore. This schema is the local/demo fallback
+// used automatically when FIREBASE_PROJECT_ID is not set, so the app stays
+// fully functional in preview without leaking any data to the public repo.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                 String   @id @default(cuid())
+  username           String   @unique
+  previousPassword   String
+  currentPasswordEnc String
+  price              Int
+  category           String   @default("general")
+  notes              String?
+  status             String   @default("active") // active | inactive
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  payments           Payment[]
+  unlockTokens       UnlockToken[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  paymentId String?
+  orderId   String
+  amount    Int
+  status    String   @default("created") // created | paid | failed
+  username  String
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model UnlockToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  paymentId String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  @@index([accountId])
+  @@index([expiresAt])
+}
+
+model AdminLog {
+  id        String   @id @default(cuid())
+  action    String
+  targetId  String?
+  detail    String?
+  adminUid  String?
+  createdAt DateTime @default(now())
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  adminUid  String
+  email     String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
