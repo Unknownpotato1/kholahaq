@@ -23,11 +23,18 @@ export default function SearchPageInner() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const runSearch = useCallback(async (query: string) => {
+    // Empty query = no search. Accounts are never listed by default.
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setItems(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setItems(null);
     try {
       const res = await fetch(
-        `/api/accounts/search?q=${encodeURIComponent(query)}`,
+        `/api/accounts/search?q=${encodeURIComponent(trimmed)}`,
         { cache: "no-store" }
       );
       if (res.status === 429) {
@@ -103,9 +110,13 @@ export default function SearchPageInner() {
       <div className="mt-8">
         {loading && <SearchSkeleton />}
 
-        {!loading && items && items.length === 0 && <EmptyState query={q} />}
+        {!loading && items === null && <IdleState />}
 
-        {!loading && items && items.length > 0 && (
+        {!loading && items !== null && items.length === 0 && (
+          <EmptyState query={q} />
+        )}
+
+        {!loading && items !== null && items.length > 0 && (
           <div className="grid gap-4">
             <AnimatePresence mode="popLayout">
               {items.map((a) => (
@@ -331,6 +342,29 @@ function SearchSkeleton() {
   );
 }
 
+function IdleState() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.3 }}
+      className="rounded-2xl border border-dashed border-border/60 bg-background/40 p-12 text-center"
+    >
+      <motion.div
+        animate={{ y: [0, -6, 0] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+        className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-muted"
+      >
+        <Search className="h-7 w-7 text-muted-foreground" />
+      </motion.div>
+      <h3 className="text-lg font-medium">Type a username to begin</h3>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Accounts only appear here when you search for them.
+      </p>
+    </motion.div>
+  );
+}
+
 function EmptyState({ query }: { query: string }) {
   return (
     <motion.div
@@ -348,9 +382,8 @@ function EmptyState({ query }: { query: string }) {
       </motion.div>
       <h3 className="text-lg font-medium">No accounts found</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        {query
-          ? `We couldn't find a match for “${query}”. Try a different username.`
-          : "Start typing to search the catalogue."}
+        We couldn&apos;t find a match for &ldquo;{query}&rdquo;. Try a different
+        username.
       </p>
     </motion.div>
   );

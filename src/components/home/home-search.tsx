@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Search, ShieldCheck, Lock, Zap, ArrowRight } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,9 @@ export function HomeSearch() {
     (e: React.FormEvent) => {
       e.preventDefault();
       const trimmed = q.trim();
-      router.push(`/search${trimmed ? `?q=${encodeURIComponent(trimmed)}` : ""}`);
+      // Only navigate when there's an actual query — empty searches do nothing.
+      if (!trimmed) return;
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
     },
     [q, router]
   );
@@ -40,20 +42,14 @@ export function HomeSearch() {
           aria-label="Search username"
           autoComplete="off"
         />
-        <Button type="submit" size="lg" className="h-12 rounded-xl px-5">
+        <Button
+          type="submit"
+          size="lg"
+          className="h-12 rounded-xl px-5"
+          disabled={!q.trim()}
+        >
           Search <ArrowRight className="ml-1 h-4 w-4" />
         </Button>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <ShieldCheck className="h-3 w-3 text-emerald-500" /> AES-256-GCM encrypted
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Lock className="h-3 w-3 text-violet-500" /> One-time unlock tokens
-        </span>
-        <span className="inline-flex items-center gap-1">
-          <Zap className="h-3 w-3 text-amber-500" /> Razorpay verified
-        </span>
       </div>
     </motion.form>
   );

@@ -21,6 +21,12 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(url.searchParams.get("limit") || "12", 10);
   const q = sanitizeQuery(raw);
 
+  // Accounts are NEVER listed without an explicit search query.
+  // This is the backend guard — the UI also blocks empty searches.
+  if (!q) {
+    return NextResponse.json({ query: "", items: [], total: 0, page, limit });
+  }
+
   try {
     const { items, total } = await Accounts.search(q, { page, limit });
     return NextResponse.json({
