@@ -20,7 +20,8 @@ export async function POST(req: NextRequest) {
   // via the Firebase client SDK.
   if (body.idToken && firebaseEnabled) {
     try {
-      const auth = getAuth();
+      const { getAuth } = await import("@/lib/firebase-admin");
+      const auth = await getAuth();
       if (!auth) throw new Error("Firebase Auth not initialized");
       await createAdminSession(body.idToken);
       return NextResponse.json({ ok: true });

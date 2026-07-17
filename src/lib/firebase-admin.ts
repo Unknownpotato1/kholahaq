@@ -11,10 +11,15 @@
  * We import them from "firebase-admin/firestore" and "firebase-admin/auth"
  * respectively, then call getFirestore(app) / getAuth(app) with the
  * initialized app instance.
+ *
+ * IMPORTANT: The "firebase-admin/auth" module pulls in jwks-rsa → jose
+ * (ESM-only), which breaks when Next.js bundles it with Turbopack/webpack.
+ * We lazy-load `getAuth` via dynamic import() so it's only evaluated when
+ * actually called, and we add `firebase-admin` to serverExternalPackages
+ * in next.config.ts so the bundler doesn't try to bundle its internals.
  */
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore as fsGetFirestore, type Firestore } from "firebase-admin/firestore";
-import { getAuth as authGetAuth, type Auth } from "firebase-admin/auth";
 
 let app: App | null = null;
 let initError: string | null = null;
@@ -56,10 +61,17 @@ export function getFirestore(): Firestore | null {
   return fsGetFirestore(a);
 }
 
-export function getAuth(): Auth | null {
+/**
+ * Lazy-load Firebase Auth. Only used by the Firebase ID token login flow
+ * (createAdminSession). The env-based login (createEnvAdminSession) never
+ * touches this, so the jwks-rsa/jose ESM chain is never loaded for the
+ * common case.
+ */
+export async function getAuth(): Promise<import("firebase-admin/auth").Auth | null> {
   const a = getFirebaseAdmin();
   if (!a) return null;
-  return authGetAuth(a);
+  const { getAuth } = await import("firebase-admin/auth");
+  return getAuth(a);
 }
 
 export { initError };

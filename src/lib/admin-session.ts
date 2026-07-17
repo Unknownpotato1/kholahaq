@@ -71,7 +71,7 @@ async function deleteSession(token: string): Promise<void> {
 
 export async function createAdminSession(idToken: string): Promise<void> {
   // Verify the Firebase ID token.
-  const auth = getAuth();
+  const auth = await getAuth();
   if (!auth) {
     throw new Error("Firebase Auth is not initialised");
   }
