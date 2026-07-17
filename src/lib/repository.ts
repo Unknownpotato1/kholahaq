@@ -169,17 +169,16 @@ export const Accounts = {
     const limit = Math.min(opts?.limit ?? 20, 50);
     const page = Math.max(opts?.page ?? 1, 1);
     if (firebaseEnabled) {
-      const q = (query || "").trim().toLowerCase();
+      const q = (query || "").trim();
       const fs = getFirestore()!;
       let snap: FirebaseFirestore.QuerySnapshot;
       if (q) {
         // Firestore doesn't support native LIKE — use prefix range.
+        // Single-field orderBy avoids needing a composite index.
         snap = await fs
           .collection(FS.accounts)
           .where("username", ">=", q)
           .where("username", "<=", q + "\uf8ff")
-          .orderBy("username")
-          .orderBy("updatedAt", "desc")
           .limit(limit)
           .get();
       } else {
@@ -193,6 +192,8 @@ export const Accounts = {
         const a = d.data();
         return { id: d.id, ...a, createdAt: fsDate(a.createdAt), updatedAt: fsDate(a.updatedAt) } as Account;
       });
+      // Sort client-side by updatedAt desc for better UX.
+      items.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
       return { items, total: items.length };
     }
     const where = query
@@ -554,16 +555,19 @@ export const Messages = {
   async listByChat(chatId: string, limit = 200): Promise<Message[]> {
     if (firebaseEnabled) {
       const fs = getFirestore()!;
+      // Query without orderBy to avoid needing a composite index.
+      // Sort client-side instead.
       const snap = await fs
         .collection(FS.messages)
         .where("chatId", "==", chatId)
-        .orderBy("createdAt", "asc")
         .limit(limit)
         .get();
-      return snap.docs.map((d) => {
+      const items = snap.docs.map((d) => {
         const a = d.data();
         return { id: d.id, ...a, createdAt: fsDate(a.createdAt) } as Message;
       });
+      items.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return items;
     }
     const rows = await prisma.message.findMany({
       where: { chatId },

@@ -98,10 +98,7 @@ export default function AdminLoginInner() {
         </form>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Demo credentials:{" "}
-          <code className="rounded bg-muted px-1 py-0.5">admin@gomen.local</code>{" "}
-          /{" "}
-          <code className="rounded bg-muted px-1 py-0.5">gomen-admin</code>
+          Admin access is restricted. Contact the site owner for credentials.
         </p>
       </div>
     </div>

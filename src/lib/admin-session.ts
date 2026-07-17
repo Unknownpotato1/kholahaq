@@ -107,6 +107,36 @@ export async function createAdminSession(idToken: string): Promise<void> {
   });
 }
 
+/**
+ * Env-based login — used when Firebase backend is enabled but client-side
+ * Firebase Auth is not configured (no NEXT_PUBLIC_FIREBASE_API_KEY).
+ *
+ * The admin enters email + password, the server checks them against env
+ * vars (ADMIN_DEMO_EMAIL / ADMIN_DEMO_PASSWORD), and if they match it
+ * mints a session and stores it in Firestore (or Prisma fallback).
+ *
+ * For production, replace this with full Firebase Auth by setting the
+ * NEXT_PUBLIC_FIREBASE_* env vars and using createAdminSession(idToken).
+ */
+export async function createEnvAdminSession(email: string): Promise<void> {
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + MAX_AGE_SECONDS * 1000);
+  await saveSession({ token, adminUid: "env-admin", email, expiresAt });
+  await Logs.create({
+    action: "admin_login",
+    detail: `env login ${email}`,
+    adminUid: "env-admin",
+  });
+  const store = await cookies();
+  store.set(COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: MAX_AGE_SECONDS,
+  });
+}
+
 export async function destroyAdminSession(): Promise<void> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;

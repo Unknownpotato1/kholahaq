@@ -37,8 +37,9 @@ export async function POST(req: NextRequest) {
   if (text.length > 4000) {
     return NextResponse.json({ error: "text_too_long" }, { status: 400 });
   }
-  // ~2 MB cap on inline images.
-  if (imageUrl.length > 2_700_000) {
+  // Firestore documents have a 1 MB max size, so the data URL must be
+  // comfortably under that (accounting for the rest of the doc).
+  if (imageUrl.length > 900_000) {
     return NextResponse.json({ error: "image_too_large" }, { status: 413 });
   }
 

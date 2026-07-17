@@ -1,67 +1,30 @@
 rules_version = '2';
 
 // =========================================================================
-// GOMEN · Firestore security rules
+// GOMEN · Firestore security rules (PRODUCTION-LOCKED)
 // =========================================================================
-// DESIGN:
-//   - The current password of every account is stored ENCRYPTED in the
-//     `currentPasswordEnc` field. Even if a client could read it (which
-//     these rules prevent), they couldn't decrypt it without the server's
-//     ENCRYPTION_SECRET.
-//   - All writes go through Next.js API routes using the Firebase Admin
-//     SDK, which bypasses these rules. These rules protect against direct
-//     client SDK reads/writes from malicious users.
-//   - Public read is allowed only on the username, previousPassword,
-//     price, category, notes, status, and timestamps — never on
-//     `currentPasswordEnc`.
+// All client reads/writes are BLOCKED. Every data operation goes through
+// the Next.js API routes, which use the Firebase Admin SDK (service account)
+// and bypass these rules entirely.
+//
+// This means:
+//   - Visitors can NEVER read accounts, payments, unlockTokens, chats, etc.
+//     directly from the browser.
+//   - The encrypted `currentPasswordEnc` field is unreachable from the client
+//     even if someone finds a document ID.
+//   - All data access is mediated by our server-side authentication,
+//     payment verification, and rate limiting.
+//
+// The Admin SDK uses the service account credentials and is NOT subject
+// to these rules — it has full read/write access to all collections.
 // =========================================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper: only the Firebase Admin SDK (server) can write.
-    function isServer() {
-      return request.auth.token.firebase.sign_in_provider == 'admin';
-    }
-
-    // ---- accounts ----
-    match /accounts/{accountId} {
-      // Public can read public-safe fields only. Admin SDK reads all fields.
-      allow read: if true;
-      allow create, update, delete: if isServer();
-    }
-
-    // ---- payments ----
-    // Payment records are PRIVATE. The server creates them when orders are
-    // placed and updates status after webhook verification.
-    match /payments/{paymentId} {
-      allow read, write: if isServer();
-    }
-
-    // ---- unlockTokens ----
-    // Tokens are PRIVATE and one-time-use. Only the server reads them
-    // (to verify + mark used). NEVER expose this collection to clients.
-    match /unlockTokens/{tokenId} {
-      allow read, write: if isServer();
-    }
-
-    // ---- adminSessions ----
-    match /adminSessions/{sessionId} {
-      allow read, write: if isServer();
-    }
-
-    // ---- logs ----
-    // Logs are admin-only.
-    match /logs/{logId} {
-      allow read, write: if isServer();
-    }
-
-    // ---- admins (allow-list of admin UIDs) ----
-    // Public-readable so middleware / server can check membership.
-    // Writes only via Admin SDK.
-    match /admins/{adminId} {
-      allow read: if true;
-      allow write: if isServer();
+    match /{document=**} {
+      // Block ALL direct client access.
+      // The Admin SDK (used by our API routes) bypasses these rules.
+      allow read, write: if false;
     }
   }
 }
