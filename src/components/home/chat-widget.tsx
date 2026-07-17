@@ -132,6 +132,13 @@ export function ChatWidget() {
     setOpen(true);
   }
 
+  // Allow other components (e.g. the "talk to me" link) to open the chat.
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("gomen:open-chat", handler);
+    return () => window.removeEventListener("gomen:open-chat", handler);
+  }, []);
+
   async function onSend() {
     const trimmed = text.trim();
     if (!trimmed || !sessionId || busy) return;

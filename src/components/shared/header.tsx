@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
 export function Header() {
   return (
@@ -14,14 +13,7 @@ export function Header() {
           </span>
           <span className="text-lg font-semibold tracking-tight">Gomen</span>
         </Link>
-
-        <nav className="flex items-center gap-1 sm:gap-2">
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/admin/login">
-              <Shield className="mr-1 h-4 w-4" /> Admin
-            </Link>
-          </Button>
-        </nav>
+        <div className="w-8" aria-hidden />
       </div>
     </header>
   );
