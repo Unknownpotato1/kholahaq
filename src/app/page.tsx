@@ -2,6 +2,7 @@
 
 import { HomeSearch } from "@/components/home/home-search";
 import { ChatWidget } from "@/components/home/chat-widget";
+import { EntryDisclaimer } from "@/components/home/entry-disclaimer";
 
 export default function HomePage() {
   return (
@@ -24,14 +25,20 @@ export default function HomePage() {
             Type any username to look it up. Results appear only after you search.
           </p>
 
+          {/* Search bar */}
           <div className="mt-10 w-full">
             <HomeSearch />
+          </div>
+
+          {/* Chat with me button — matches search bar width */}
+          <div className="mt-4 w-full">
+            <ChatWidget />
           </div>
         </div>
       </section>
 
-      {/* Floating anonymous chat with admin (text + image) */}
-      <ChatWidget />
+      {/* Entry disclaimer popup (shows once per session) */}
+      <EntryDisclaimer />
     </div>
   );
 }

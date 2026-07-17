@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Shield, Search, Home as HomeIcon } from "lucide-react";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function Header() {
@@ -18,21 +17,10 @@ export function Header() {
 
         <nav className="flex items-center gap-1 sm:gap-2">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/">
-              <HomeIcon className="mr-1 h-4 w-4" /> Home
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm">
-            <Link href="/search">
-              <Search className="mr-1 h-4 w-4" /> Search
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
             <Link href="/admin/login">
               <Shield className="mr-1 h-4 w-4" /> Admin
             </Link>
           </Button>
-          <ThemeToggle />
         </nav>
       </div>
     </header>

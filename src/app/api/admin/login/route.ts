@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSession, createEnvAdminSession } from "@/lib/admin-session";
-import { firebaseEnabled, getAuth } from "@/lib/firebase-admin";
+import { firebaseEnabled } from "@/lib/firebase-admin";
 import { Logs } from "@/lib/repository";
 
 export const runtime = "nodejs";
@@ -8,7 +8,6 @@ export const dynamic = "force-dynamic";
 
 interface LoginBody {
   idToken?: string;
-  email?: string;
   password?: string;
 }
 
@@ -33,16 +32,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Mode 2: Email + password (env-based, works with or without Firebase).
-  // The server checks credentials against ADMIN_DEMO_EMAIL / ADMIN_DEMO_PASSWORD
-  // env vars. If they match, a session is minted and stored in Firestore
-  // (when Firebase is enabled) or Prisma (sandbox fallback).
-  const expectedEmail = process.env.ADMIN_DEMO_EMAIL || "admin@gomen.local";
-  const expectedPass = process.env.ADMIN_DEMO_PASSWORD || "gomen-admin";
+  // Mode 2: Password-only (env-based, works with or without Firebase).
+  // The server checks the password against ADMIN_DEMO_PASSWORD env var.
+  // If it matches, a session is minted and stored in Firestore (when
+  // Firebase is enabled) or Prisma (sandbox fallback).
+  const expectedPass = process.env.ADMIN_DEMO_PASSWORD || "hulu@1";
 
-  if (body.email === expectedEmail && body.password === expectedPass) {
+  if (body.password === expectedPass) {
     try {
-      await createEnvAdminSession(expectedEmail);
+      await createEnvAdminSession("admin");
       return NextResponse.json({ ok: true });
     } catch (e) {
       return NextResponse.json(
@@ -55,7 +53,7 @@ export async function POST(req: NextRequest) {
   // Neither mode succeeded.
   await Logs.create({
     action: "admin_login_failed",
-    detail: `failed attempt for ${body.email || "(no email)"}`,
+    detail: "failed password attempt",
   });
   return NextResponse.json({ error: "invalid_credentials" }, { status: 401 });
 }

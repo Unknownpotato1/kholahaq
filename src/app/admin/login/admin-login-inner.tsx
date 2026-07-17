@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Shield, Mail, Lock } from "lucide-react";
+import { Loader2, Shield, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,6 @@ export default function AdminLoginInner() {
   const params = useSearchParams();
   const from = params.get("from") || "/admin/dashboard";
 
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -24,7 +23,7 @@ export default function AdminLoginInner() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -55,22 +54,6 @@ export default function AdminLoginInner() {
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-9"
-                placeholder="admin@gomen.local"
-                required
-                autoComplete="email"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <div className="relative">
               <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -83,6 +66,7 @@ export default function AdminLoginInner() {
                 placeholder="••••••••"
                 required
                 autoComplete="current-password"
+                autoFocus
               />
             </div>
           </div>
@@ -98,7 +82,7 @@ export default function AdminLoginInner() {
         </form>
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Admin access is restricted. Contact the site owner for credentials.
+          Admin access is restricted. Contact the site owner for the password.
         </p>
       </div>
     </div>
