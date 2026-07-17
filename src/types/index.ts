@@ -89,3 +89,21 @@ export interface AdminLogInput {
   detail?: string | null;
   adminUid?: string | null;
 }
+
+// ---------- Anonymous chat ----------
+export interface Chat {
+  id: string;
+  sessionId: string;
+  displayName: string;
+  lastMessageAt: Date | string;
+  createdAt: Date | string;
+}
+
+export interface Message {
+  id: string;
+  chatId: string;
+  sender: "user" | "admin";
+  text?: string | null;
+  imageUrl?: string | null;
+  createdAt: Date | string;
+}

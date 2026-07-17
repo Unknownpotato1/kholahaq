@@ -1,11 +1,12 @@
 "use client";
 
 import { HomeSearch } from "@/components/home/home-search";
+import { ChatWidget } from "@/components/home/chat-widget";
 
 export default function HomePage() {
   return (
     <div className="w-full">
-      {/* HERO + SEARCH (only thing on the page) */}
+      {/* HERO + SEARCH */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0 -z-10">
           <div className="absolute -top-32 left-1/2 h-72 w-[40rem] -translate-x-1/2 rounded-full bg-gradient-to-br from-violet-500/30 via-fuchsia-500/20 to-transparent blur-3xl" />
@@ -28,6 +29,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Floating anonymous chat with admin (text + image) */}
+      <ChatWidget />
     </div>
   );
 }

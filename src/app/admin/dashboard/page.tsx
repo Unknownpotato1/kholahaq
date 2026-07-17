@@ -12,6 +12,7 @@ import {
   TrendingUp,
   LogOut,
   Plus,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +30,7 @@ import dynamic from "next/dynamic";
 import { AccountsManager } from "@/components/admin/accounts-manager";
 import { PaymentsTable } from "@/components/admin/payments-table";
 import { LogsTable } from "@/components/admin/logs-table";
+import { ChatManager } from "@/components/admin/chat-manager";
 
 const StatsChart = dynamic(
   () => import("@/components/admin/stats-chart").then((m) => m.StatsChart),
@@ -191,6 +193,9 @@ export default function AdminDashboardPage() {
             <TabsTrigger value="accounts">
               <Users className="mr-1 h-3.5 w-3.5" /> Accounts
             </TabsTrigger>
+            <TabsTrigger value="chats">
+              <MessageCircle className="mr-1 h-3.5 w-3.5" /> Chats
+            </TabsTrigger>
             <TabsTrigger value="payments">
               <Wallet className="mr-1 h-3.5 w-3.5" /> Payments
             </TabsTrigger>
@@ -200,6 +205,9 @@ export default function AdminDashboardPage() {
           </TabsList>
           <TabsContent value="accounts" className="mt-4">
             <AccountsManager />
+          </TabsContent>
+          <TabsContent value="chats" className="mt-4">
+            <ChatManager />
           </TabsContent>
           <TabsContent value="payments" className="mt-4">
             <PaymentsTable rows={stats?.recentPayments || []} />

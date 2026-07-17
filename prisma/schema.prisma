@@ -70,3 +70,27 @@ model AdminSession {
   createdAt DateTime @default(now())
   expiresAt DateTime
 }
+
+// Anonymous chat between visitors and admin.
+// A visitor gets a random sessionId stored in localStorage; they never log in.
+model Chat {
+  id            String    @id @default(cuid())
+  sessionId     String    @unique
+  displayName   String    @default("Anonymous")
+  lastMessageAt DateTime  @default(now())
+  createdAt     DateTime  @default(now())
+  messages      Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  chatId    String
+  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender    String // "user" | "admin"
+  text      String?
+  // In sandbox: data URL (base64). In prod: Firebase Storage URL.
+  imageUrl  String?
+  createdAt DateTime @default(now())
+
+  @@index([chatId])
+}

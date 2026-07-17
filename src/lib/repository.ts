@@ -25,6 +25,8 @@ import type {
   UnlockTokenInput,
   AdminLog,
   AdminLogInput,
+  Chat,
+  Message,
 } from "@/types";
 
 // ---------- public-safe type (no currentPassword) ----------
@@ -49,6 +51,8 @@ const FS = {
   unlockTokens: "unlockTokens",
   admins: "admins",
   logs: "logs",
+  chats: "chats",
+  messages: "messages",
 } as const;
 
 function fsDate(d: Date | string | { seconds?: number; nanoseconds?: number }): Date {
@@ -404,5 +408,168 @@ export const Admins = {
     const demo = process.env.ADMIN_DEMO_UID;
     if (demo) return uid === demo;
     return Boolean(uid);
+  },
+};
+
+// ============ CHAT REPO ============
+// Anonymous visitor ↔ admin conversations.
+// A visitor's sessionId is generated client-side and stored in localStorage.
+export const Chats = {
+  async getOrCreateBySession(sessionId: string, displayName?: string): Promise<Chat> {
+    if (firebaseEnabled) {
+      const fs = getFirestore()!;
+      const snap = await fs
+        .collection(FS.chats)
+        .where("sessionId", "==", sessionId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        const d = snap.docs[0]!;
+        const a = d.data();
+        return {
+          id: d.id,
+          ...a,
+          lastMessageAt: fsDate(a.lastMessageAt),
+          createdAt: fsDate(a.createdAt),
+        } as Chat;
+      }
+      const ref = await fs.collection(FS.chats).add({
+        sessionId,
+        displayName: displayName || "Anonymous",
+        lastMessageAt: new Date(),
+        createdAt: new Date(),
+      });
+      const a = (await ref.get()).data()!;
+      return {
+        id: ref.id,
+        ...a,
+        lastMessageAt: fsDate(a.lastMessageAt),
+        createdAt: fsDate(a.createdAt),
+      } as Chat;
+    }
+    const existing = await prisma.chat.findUnique({ where: { sessionId } });
+    if (existing) return existing as unknown as Chat;
+    const row = await prisma.chat.create({
+      data: { sessionId, displayName: displayName || "Anonymous" },
+    });
+    return row as unknown as Chat;
+  },
+
+  async getById(id: string): Promise<Chat | null> {
+    if (firebaseEnabled) {
+      const snap = await getFirestore()!.collection(FS.chats).doc(id).get();
+      if (!snap.exists) return null;
+      const a = snap.data()!;
+      return {
+        id: snap.id,
+        ...a,
+        lastMessageAt: fsDate(a.lastMessageAt),
+        createdAt: fsDate(a.createdAt),
+      } as Chat;
+    }
+    const row = await prisma.chat.findUnique({ where: { id } });
+    return (row as unknown as Chat) || null;
+  },
+
+  async getBySession(sessionId: string): Promise<Chat | null> {
+    if (firebaseEnabled) {
+      const snap = await getFirestore()!
+        .collection(FS.chats)
+        .where("sessionId", "==", sessionId)
+        .limit(1)
+        .get();
+      if (snap.empty) return null;
+      const d = snap.docs[0]!;
+      const a = d.data();
+      return {
+        id: d.id,
+        ...a,
+        lastMessageAt: fsDate(a.lastMessageAt),
+        createdAt: fsDate(a.createdAt),
+      } as Chat;
+    }
+    const row = await prisma.chat.findUnique({ where: { sessionId } });
+    return (row as unknown as Chat) || null;
+  },
+
+  async touch(id: string): Promise<void> {
+    if (firebaseEnabled) {
+      await getFirestore()!.collection(FS.chats).doc(id).update({
+        lastMessageAt: new Date(),
+      });
+      return;
+    }
+    await prisma.chat.update({
+      where: { id },
+      data: { lastMessageAt: new Date() },
+    });
+  },
+
+  async list(limit = 100): Promise<Chat[]> {
+    if (firebaseEnabled) {
+      return fsList<Chat>(FS.chats, {
+        orderBy: "lastMessageAt",
+        orderDir: "desc",
+        limit,
+      });
+    }
+    const rows = await prisma.chat.findMany({
+      orderBy: { lastMessageAt: "desc" },
+      take: limit,
+    });
+    return rows as unknown as Chat[];
+  },
+};
+
+// ============ MESSAGE REPO ============
+export const Messages = {
+  async create(input: {
+    chatId: string;
+    sender: "user" | "admin";
+    text?: string | null;
+    imageUrl?: string | null;
+  }): Promise<Message> {
+    if (firebaseEnabled) {
+      const fs = getFirestore()!;
+      const ref = await fs.collection(FS.messages).add({
+        ...input,
+        createdAt: new Date(),
+      });
+      await Chats.touch(input.chatId);
+      const a = (await ref.get()).data()!;
+      return { id: ref.id, ...a, createdAt: fsDate(a.createdAt) } as Message;
+    }
+    const row = await prisma.message.create({
+      data: {
+        chatId: input.chatId,
+        sender: input.sender,
+        text: input.text || null,
+        imageUrl: input.imageUrl || null,
+      },
+    });
+    await Chats.touch(input.chatId);
+    return row as unknown as Message;
+  },
+
+  async listByChat(chatId: string, limit = 200): Promise<Message[]> {
+    if (firebaseEnabled) {
+      const fs = getFirestore()!;
+      const snap = await fs
+        .collection(FS.messages)
+        .where("chatId", "==", chatId)
+        .orderBy("createdAt", "asc")
+        .limit(limit)
+        .get();
+      return snap.docs.map((d) => {
+        const a = d.data();
+        return { id: d.id, ...a, createdAt: fsDate(a.createdAt) } as Message;
+      });
+    }
+    const rows = await prisma.message.findMany({
+      where: { chatId },
+      orderBy: { createdAt: "asc" },
+      take: limit,
+    });
+    return rows as unknown as Message[];
   },
 };
