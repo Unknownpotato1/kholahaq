@@ -432,6 +432,7 @@ export const Chats = {
           ...a,
           lastMessageAt: fsDate(a.lastMessageAt),
           createdAt: fsDate(a.createdAt),
+          lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
         } as Chat;
       }
       const ref = await fs.collection(FS.chats).add({
@@ -446,6 +447,7 @@ export const Chats = {
         ...a,
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
+        lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
       } as Chat;
     }
     const existing = await prisma.chat.findUnique({ where: { sessionId } });
@@ -466,6 +468,7 @@ export const Chats = {
         ...a,
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
+        lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
       } as Chat;
     }
     const row = await prisma.chat.findUnique({ where: { id } });
@@ -487,6 +490,7 @@ export const Chats = {
         ...a,
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
+        lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
       } as Chat;
     }
     const row = await prisma.chat.findUnique({ where: { sessionId } });
@@ -508,10 +512,21 @@ export const Chats = {
 
   async list(limit = 100): Promise<Chat[]> {
     if (firebaseEnabled) {
-      return fsList<Chat>(FS.chats, {
-        orderBy: "lastMessageAt",
-        orderDir: "desc",
-        limit,
+      const fs = getFirestore()!;
+      const snap = await fs
+        .collection(FS.chats)
+        .orderBy("lastMessageAt", "desc")
+        .limit(limit)
+        .get();
+      return snap.docs.map((d) => {
+        const a = d.data();
+        return {
+          id: d.id,
+          ...a,
+          lastMessageAt: fsDate(a.lastMessageAt),
+          createdAt: fsDate(a.createdAt),
+          lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+        } as Chat;
       });
     }
     const rows = await prisma.chat.findMany({
