@@ -1,8 +1,19 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
-import { Send, Image as ImageIcon, Loader2, MessageCircle, RefreshCw, KeyRound, XCircle, Copy, Check } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Send,
+  Image as ImageIcon,
+  Loader2,
+  MessageCircle,
+  RefreshCw,
+  KeyRound,
+  XCircle,
+  Copy,
+  Check,
+  ArrowLeft,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +54,6 @@ export function ChatManager() {
   }, []);
 
   const loadChats = useCallback(async () => {
-    setChats(null);
     try {
       const res = await fetch("/api/admin/chat", { cache: "no-store" });
       if (res.status === 401) {
@@ -77,22 +87,32 @@ export function ChatManager() {
     loadChats();
   }, [loadChats]);
 
-  // Poll the selected conversation + chat list for updates.
+  // Mark chat as read when opened.
+  const markChatRead = useCallback(async (chatId: string) => {
+    try {
+      await fetch(`/api/admin/chat/${chatId}/read`, { method: "POST" });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  // Poll: refresh chat list + active conversation.
   useEffect(() => {
-    if (!selectedId) return;
     const poll = async () => {
       try {
-        const [msgRes, chatsRes] = await Promise.all([
-          fetch(`/api/admin/chat/${selectedId}`, { cache: "no-store" }),
-          fetch("/api/admin/chat", { cache: "no-store" }),
-        ]);
-        if (msgRes.ok) {
-          const data = await msgRes.json();
-          setMessages(data.messages || []);
-        }
+        const chatsRes = await fetch("/api/admin/chat", { cache: "no-store" });
         if (chatsRes.ok) {
           const data = await chatsRes.json();
           setChats(data.chats || []);
+        }
+        if (selectedId) {
+          const msgRes = await fetch(`/api/admin/chat/${selectedId}`, {
+            cache: "no-store",
+          });
+          if (msgRes.ok) {
+            const data = await msgRes.json();
+            setMessages(data.messages || []);
+          }
         }
       } catch {
         /* ignore */
@@ -111,6 +131,18 @@ export function ChatManager() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  function openChat(chatId: string) {
+    setSelectedId(chatId);
+    loadMessages(chatId);
+    markChatRead(chatId);
+  }
+
+  function backToList() {
+    setSelectedId(null);
+    setMessages([]);
+    loadChats(); // refresh unread counts
+  }
 
   async function onSend() {
     const trimmed = text.trim();
@@ -140,8 +172,9 @@ export function ChatManager() {
       setMessages((m) =>
         m.map((msg) => (msg.id === optimistic.id ? data.message : msg))
       );
-      // Refresh chat list so the lastMessageAt updates.
       loadChats();
+      // Re-mark as read since we just sent a message.
+      markChatRead(selectedId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send failed");
       setMessages((m) => m.filter((msg) => msg.id !== optimistic.id));
@@ -187,7 +220,6 @@ export function ChatManager() {
       );
     } catch {
       toast.error("Image upload failed");
-      setMessages((m) => m.filter((msg) => msg.id !== "tmp_" + optimistic.id));
     } finally {
       setBusy(false);
     }
@@ -213,6 +245,7 @@ export function ChatManager() {
       setMessages((m) => [...m, data.message]);
       toast.success(`Password for ${data.username} sent`);
       loadChats();
+      markChatRead(selectedId);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to send password");
     } finally {
@@ -232,6 +265,7 @@ export function ChatManager() {
       setMessages((m) => [...m, data.message]);
       toast.success("Rejection sent");
       loadChats();
+      markChatRead(selectedId);
     } catch {
       toast.error("Failed to reject");
     } finally {
@@ -239,10 +273,23 @@ export function ChatManager() {
     }
   }
 
+  // A chat is "unread" if lastMessageAt > lastReadAt (or never read).
+  function isUnread(chat: Chat): boolean {
+    const lastMessageAt = new Date(chat.lastMessageAt).getTime();
+    const lastReadAt = chat.lastReadAt
+      ? new Date(chat.lastReadAt).getTime()
+      : 0;
+    return lastMessageAt > lastReadAt;
+  }
+
   return (
-    <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
-      {/* Chat list */}
-      <div className="rounded-xl border border-border/60 bg-background/40">
+    <div className="relative h-[36rem] overflow-hidden rounded-xl border border-border/60 bg-background/40">
+      {/* LIST VIEW */}
+      <div
+        className={`absolute inset-0 flex flex-col transition-transform duration-200 ${
+          selectedId ? "hidden sm:flex" : "flex"
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-border/60 p-3">
           <span className="text-sm font-medium">Conversations</span>
           <Button
@@ -255,7 +302,7 @@ export function ChatManager() {
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <ScrollArea className="max-h-[30rem]">
+        <ScrollArea className="flex-1">
           {!chats && (
             <div className="space-y-2 p-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -269,42 +316,66 @@ export function ChatManager() {
             </div>
           )}
           {chats &&
-            chats.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => {
-                  setSelectedId(c.id);
-                  loadMessages(c.id);
-                }}
-                className={`flex w-full items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5 text-left transition hover:bg-accent/50 ${
-                  selectedId === c.id ? "bg-accent/70" : ""
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
-                    {c.displayName}
+            chats.map((c) => {
+              const unread = isUnread(c);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => openChat(c.id)}
+                  className={`flex w-full items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5 text-left transition hover:bg-accent/50 ${
+                    selectedId === c.id ? "bg-accent/70" : ""
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {c.displayName}
+                      </span>
+                      {unread && (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                      )}
+                    </div>
+                    <div className="truncate text-[10px] text-muted-foreground">
+                      {new Date(c.lastMessageAt).toLocaleString()}
+                    </div>
                   </div>
-                  <div className="truncate text-[10px] text-muted-foreground">
-                    {new Date(c.lastMessageAt).toLocaleString()}
-                  </div>
-                </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {c.sessionId.slice(0, 6)}
-                </Badge>
-              </button>
-            ))}
+                  <Badge variant="outline" className="text-[10px]">
+                    {c.sessionId.slice(0, 6)}
+                  </Badge>
+                </button>
+              );
+            })}
         </ScrollArea>
       </div>
 
-      {/* Conversation */}
-      <div className="flex h-[32rem] flex-col rounded-xl border border-border/60 bg-background/40">
-        {!selectedId ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
-            <MessageCircle className="h-10 w-10" />
-            <div>Select a conversation to view messages.</div>
-          </div>
-        ) : (
-          <>
+      {/* CONVERSATION VIEW */}
+      <AnimatePresence>
+        {selectedId && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="absolute inset-0 flex flex-col bg-background"
+          >
+            {/* Header with back button */}
+            <div className="flex items-center gap-2 border-b border-border/60 p-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={backToList}
+                aria-label="Back to conversations"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex-1 truncate text-sm font-medium">
+                {chats?.find((c) => c.id === selectedId)?.displayName ||
+                  "Conversation"}
+              </div>
+            </div>
+
+            {/* Messages */}
             <div
               ref={scrollRef}
               className="flex-1 space-y-3 overflow-y-auto p-4"
@@ -415,9 +486,9 @@ export function ChatManager() {
                 </Button>
               </div>
             </div>
-          </>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
@@ -430,7 +501,6 @@ function AdminMessageBubble({ message }: { message: Message }) {
     minute: "2-digit",
   });
 
-  // Password reveal message — special prominent styling.
   if (message.passwordReveal) {
     return (
       <motion.div

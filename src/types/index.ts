@@ -97,6 +97,7 @@ export interface Chat {
   displayName: string;
   lastMessageAt: Date | string;
   createdAt: Date | string;
+  lastReadAt?: Date | string | null;
 }
 
 export interface Message {

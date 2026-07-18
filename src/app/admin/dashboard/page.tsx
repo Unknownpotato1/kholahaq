@@ -28,8 +28,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AccountsManager } from "@/components/admin/accounts-manager";
-import { PaymentsTable } from "@/components/admin/payments-table";
-import { LogsTable } from "@/components/admin/logs-table";
 import { ChatManager } from "@/components/admin/chat-manager";
 
 const StatsChart = dynamic(
@@ -188,32 +186,20 @@ export default function AdminDashboardPage() {
 
       {/* TABS */}
       <div className="mt-6">
-        <Tabs defaultValue="accounts">
+        <Tabs defaultValue="chats">
           <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="accounts">
-              <Users className="mr-1 h-3.5 w-3.5" /> Accounts
-            </TabsTrigger>
             <TabsTrigger value="chats">
               <MessageCircle className="mr-1 h-3.5 w-3.5" /> Chats
             </TabsTrigger>
-            <TabsTrigger value="payments">
-              <Wallet className="mr-1 h-3.5 w-3.5" /> Payments
-            </TabsTrigger>
-            <TabsTrigger value="logs">
-              <AlertTriangle className="mr-1 h-3.5 w-3.5" /> Logs
+            <TabsTrigger value="accounts">
+              <Users className="mr-1 h-3.5 w-3.5" /> Accounts
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="accounts" className="mt-4">
-            <AccountsManager />
-          </TabsContent>
           <TabsContent value="chats" className="mt-4">
             <ChatManager />
           </TabsContent>
-          <TabsContent value="payments" className="mt-4">
-            <PaymentsTable rows={stats?.recentPayments || []} />
-          </TabsContent>
-          <TabsContent value="logs" className="mt-4">
-            <LogsTable rows={stats?.recentLogs || []} />
+          <TabsContent value="accounts" className="mt-4">
+            <AccountsManager />
           </TabsContent>
         </Tabs>
       </div>

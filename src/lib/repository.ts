@@ -520,6 +520,20 @@ export const Chats = {
     });
     return rows as unknown as Chat[];
   },
+
+  /** Mark a chat as read by storing the current timestamp. */
+  async markRead(chatId: string): Promise<void> {
+    if (firebaseEnabled) {
+      await getFirestore()!.collection(FS.chats).doc(chatId).update({
+        lastReadAt: new Date(),
+      });
+      return;
+    }
+    await prisma.chat.update({
+      where: { id: chatId },
+      data: { lastReadAt: new Date() },
+    });
+  },
 };
 
 // ============ MESSAGE REPO ============

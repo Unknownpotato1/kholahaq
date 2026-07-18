@@ -74,12 +74,15 @@ model AdminSession {
 // Anonymous chat between visitors and admin.
 // A visitor gets a random sessionId stored in localStorage; they never log in.
 model Chat {
-  id            String    @id @default(cuid())
-  sessionId     String    @unique
-  displayName   String    @default("Anonymous")
-  lastMessageAt DateTime  @default(now())
-  createdAt     DateTime  @default(now())
-  messages      Message[]
+  id                 String    @id @default(cuid())
+  sessionId          String    @unique
+  displayName        String    @default("Anonymous")
+  lastMessageAt      DateTime  @default(now())
+  createdAt          DateTime  @default(now())
+  // Timestamp of the last time the admin opened this chat.
+  // A chat is "unread" if lastMessageAt > lastReadAt.
+  lastReadAt         DateTime?
+  messages           Message[]
 }
 
 model Message {
