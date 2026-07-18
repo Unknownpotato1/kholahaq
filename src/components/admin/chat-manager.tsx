@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -322,7 +321,7 @@ export function ChatManager() {
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
         </div>
-        <ScrollArea className="flex-1">
+        <div className="flex-1 overflow-y-auto">
           {!chats && (
             <div className="space-y-2 p-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -341,7 +340,7 @@ export function ChatManager() {
               return (
                 <div
                   key={c.id}
-                  className={`group flex items-center gap-1 border-b border-border/40 transition hover:bg-accent/50 ${
+                  className={`flex items-center gap-1 border-b border-border/40 transition hover:bg-accent/50 ${
                     selectedId === c.id ? "bg-accent/70" : ""
                   }`}
                 >
@@ -368,7 +367,7 @@ export function ChatManager() {
                   </button>
                   <button
                     onClick={() => onDeleteChat(c.id)}
-                    className="mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    className="mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
                     aria-label="Delete chat"
                     title="Delete chat"
                   >
@@ -377,7 +376,7 @@ export function ChatManager() {
                 </div>
               );
             })}
-        </ScrollArea>
+        </div>
       </div>
 
       {/* CONVERSATION VIEW */}
