@@ -393,7 +393,8 @@ export function ChatManager() {
 
             {/* Admin actions: Send password + Reject */}
             <div className="border-t border-border/60 bg-muted/20 p-2">
-              <div className="mb-2 flex items-center gap-2">
+              {/* Row 1: account selector (full width) */}
+              <div className="flex items-center gap-2">
                 <KeyRound className="h-3.5 w-3.5 shrink-0 text-violet-500" />
                 <Select
                   value={selectedAccountId}
@@ -410,16 +411,22 @@ export function ChatManager() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+              {/* Row 2: action buttons (stack on mobile, row on desktop) */}
+              <div className="mt-2 flex gap-2">
                 <Button
                   size="sm"
                   onClick={onSendPassword}
                   disabled={adminActionBusy || !selectedAccountId}
-                  className="h-8"
+                  className="h-8 flex-1"
                 >
                   {adminActionBusy ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   ) : (
-                    "Approve & Send Password"
+                    <>
+                      <KeyRound className="mr-1 h-3.5 w-3.5" /> Approve & Send
+                      Password
+                    </>
                   )}
                 </Button>
                 <Button
@@ -427,7 +434,7 @@ export function ChatManager() {
                   variant="outline"
                   onClick={onReject}
                   disabled={adminActionBusy}
-                  className="h-8"
+                  className="h-8 flex-1"
                 >
                   <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
                 </Button>

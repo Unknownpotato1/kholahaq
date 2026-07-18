@@ -102,6 +102,26 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
+      {/* TABS — Chats + Accounts at the top */}
+      <div className="mt-6">
+        <Tabs defaultValue="chats">
+          <TabsList className="w-full justify-start overflow-x-auto">
+            <TabsTrigger value="chats">
+              <MessageCircle className="mr-1 h-3.5 w-3.5" /> Chats
+            </TabsTrigger>
+            <TabsTrigger value="accounts">
+              <Users className="mr-1 h-3.5 w-3.5" /> Accounts
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="chats" className="mt-4">
+            <ChatManager />
+          </TabsContent>
+          <TabsContent value="accounts" className="mt-4">
+            <AccountsManager />
+          </TabsContent>
+        </Tabs>
+      </div>
+
       {/* STAT CARDS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard
@@ -183,26 +203,6 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* TABS */}
-      <div className="mt-6">
-        <Tabs defaultValue="chats">
-          <TabsList className="w-full justify-start overflow-x-auto">
-            <TabsTrigger value="chats">
-              <MessageCircle className="mr-1 h-3.5 w-3.5" /> Chats
-            </TabsTrigger>
-            <TabsTrigger value="accounts">
-              <Users className="mr-1 h-3.5 w-3.5" /> Accounts
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="chats" className="mt-4">
-            <ChatManager />
-          </TabsContent>
-          <TabsContent value="accounts" className="mt-4">
-            <AccountsManager />
-          </TabsContent>
-        </Tabs>
-      </div>
     </div>
   );
 }
