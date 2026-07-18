@@ -39,8 +39,33 @@ export function ChatManager() {
   const [accounts, setAccounts] = useState<AccountPublic[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string>("");
   const [adminActionBusy, setAdminActionBusy] = useState(false);
+  const [userTyping, setUserTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingSentRef = useRef(false);
+
+  /** Notify the server that the admin is typing (debounced). */
+  function notifyTyping() {
+    if (!selectedId) return;
+    if (!isTypingSentRef.current) {
+      isTypingSentRef.current = true;
+      fetch(`/api/admin/chat/${selectedId}/typing`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isTyping: true }),
+      }).catch(() => {});
+    }
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    typingDebounceRef.current = setTimeout(() => {
+      isTypingSentRef.current = false;
+      fetch(`/api/admin/chat/${selectedId}/typing`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ isTyping: false }),
+      }).catch(() => {});
+    }, 1500);
+  }
 
   // Load accounts for the "Send password" selector.
   useEffect(() => {
@@ -112,15 +137,23 @@ export function ChatManager() {
           if (msgRes.ok) {
             const data = await msgRes.json();
             setMessages(data.messages || []);
+            // Check if user is typing (within last 4 seconds).
+            const userTypingAt = data.chat?.userTypingAt;
+            if (userTypingAt) {
+              const age = Date.now() - new Date(userTypingAt).getTime();
+              setUserTyping(age < 4000);
+            } else {
+              setUserTyping(false);
+            }
           }
         }
       } catch {
         /* ignore */
       } finally {
-        pollRef.current = setTimeout(poll, 4000);
+        pollRef.current = setTimeout(poll, 2000);
       }
     };
-    pollRef.current = setTimeout(poll, 4000);
+    pollRef.current = setTimeout(poll, 2000);
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
@@ -130,7 +163,7 @@ export function ChatManager() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, userTyping]);
 
   function openChat(chatId: string) {
     setSelectedId(chatId);
@@ -148,6 +181,14 @@ export function ChatManager() {
     const trimmed = text.trim();
     if (!trimmed || !selectedId || busy) return;
     setBusy(true);
+    // Clear typing indicator.
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    isTypingSentRef.current = false;
+    fetch(`/api/admin/chat/${selectedId}/typing`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ isTyping: false }),
+    }).catch(() => {});
     const optimistic: Message = {
       id: "tmp_" + Date.now(),
       chatId: selectedId,
@@ -420,6 +461,17 @@ export function ChatManager() {
                 messages.map((m) => (
                   <AdminMessageBubble key={m.id} message={m} />
                 ))}
+              {userTyping && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-3">
+                    <div className="flex items-center gap-1">
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground" />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Admin actions: Send password + Reject */}
@@ -497,7 +549,10 @@ export function ChatManager() {
                 </Button>
                 <Input
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    notifyTyping();
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();

@@ -98,6 +98,8 @@ export interface Chat {
   lastMessageAt: Date | string;
   createdAt: Date | string;
   lastReadAt?: Date | string | null;
+  userTypingAt?: Date | string | null;
+  adminTypingAt?: Date | string | null;
 }
 
 export interface Message {

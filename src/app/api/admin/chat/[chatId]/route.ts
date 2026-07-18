@@ -52,6 +52,8 @@ export async function POST(
     text: text || null,
     imageUrl: imageUrl || null,
   });
+  // Clear the admin's typing indicator once they send.
+  await Chats.setTyping(chatId, "admin", false);
   await Logs.create({
     action: "chat_reply",
     targetId: chatId,

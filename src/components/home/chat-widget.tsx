@@ -197,14 +197,41 @@ export function ChatWidgetModal() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [adminTyping, setAdminTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSeenLengthRef = useRef(0);
+  const typingDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isTypingSentRef = useRef(false);
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
   }, []);
+
+  /** Notify the server that the visitor is typing (debounced). */
+  function notifyTyping() {
+    if (!sessionId) return;
+    // Send "typing" once, then refresh every 1.5s while still typing.
+    if (!isTypingSentRef.current) {
+      isTypingSentRef.current = true;
+      fetch("/api/chat/typing", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId, isTyping: true }),
+      }).catch(() => {});
+    }
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    typingDebounceRef.current = setTimeout(() => {
+      // After 1.5s of no keystrokes, clear typing.
+      isTypingSentRef.current = false;
+      fetch("/api/chat/typing", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId, isTyping: false }),
+      }).catch(() => {});
+    }, 1500);
+  }
 
   const startOrLoad = useCallback(async () => {
     if (!sessionId) return;
@@ -245,13 +272,21 @@ export function ChatWidgetModal() {
         const next = data.messages || [];
         setMessages(next);
         lastSeenLengthRef.current = next.length;
+        // Check if admin is typing (within last 4 seconds).
+        const adminTypingAt = data.chat?.adminTypingAt;
+        if (adminTypingAt) {
+          const age = Date.now() - new Date(adminTypingAt).getTime();
+          setAdminTyping(age < 4000);
+        } else {
+          setAdminTyping(false);
+        }
       } catch {
         /* ignore */
       } finally {
-        pollRef.current = setTimeout(poll, 3000);
+        pollRef.current = setTimeout(poll, 2000);
       }
     };
-    pollRef.current = setTimeout(poll, 3000);
+    pollRef.current = setTimeout(poll, 2000);
     return () => {
       if (pollRef.current) clearTimeout(pollRef.current);
     };
@@ -261,7 +296,7 @@ export function ChatWidgetModal() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, open]);
+  }, [messages, open, adminTyping]);
 
   // Allow other components (e.g. the "Chat with me" button, "talk to me"
   // link, or the "I've paid" button in BuyAccessModal) to open the chat.
@@ -275,6 +310,14 @@ export function ChatWidgetModal() {
     const trimmed = text.trim();
     if (!trimmed || !sessionId || busy) return;
     setBusy(true);
+    // Clear typing indicator.
+    if (typingDebounceRef.current) clearTimeout(typingDebounceRef.current);
+    isTypingSentRef.current = false;
+    fetch("/api/chat/typing", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sessionId, isTyping: false }),
+    }).catch(() => {});
     const optimistic: Message = {
       id: "tmp_" + Date.now(),
       chatId: "",
@@ -412,6 +455,17 @@ export function ChatWidgetModal() {
                 {messages.map((m) => (
                   <MessageBubble key={m.id} message={m} />
                 ))}
+                {adminTyping && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl rounded-bl-sm bg-muted px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.3s]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground [animation-delay:-0.15s]" />
+                        <span className="h-2 w-2 animate-bounce rounded-full bg-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Composer */}
@@ -437,7 +491,10 @@ export function ChatWidgetModal() {
                   </Button>
                   <Input
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={(e) => {
+                      setText(e.target.value);
+                      notifyTyping();
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();

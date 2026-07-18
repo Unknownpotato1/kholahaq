@@ -82,6 +82,10 @@ model Chat {
   // Timestamp of the last time the admin opened this chat.
   // A chat is "unread" if lastMessageAt > lastReadAt.
   lastReadAt         DateTime?
+  // Live typing indicators — timestamp of the last keypress from each side.
+  // Cleared (set to null) when a message is sent or after inactivity.
+  userTypingAt       DateTime?
+  adminTypingAt      DateTime?
   messages           Message[]
 }
 

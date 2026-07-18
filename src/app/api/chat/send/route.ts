@@ -61,6 +61,8 @@ export async function POST(req: NextRequest) {
     text: text || null,
     imageUrl: imageUrl || null,
   });
+  // Clear the visitor's typing indicator once they send.
+  await Chats.setTyping(chat.id, "user", false);
 
   // Auto-reply scheduling — only for the exact trigger message.
   let pendingAutoReply: Date | null = null;

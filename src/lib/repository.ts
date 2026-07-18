@@ -433,6 +433,8 @@ export const Chats = {
           lastMessageAt: fsDate(a.lastMessageAt),
           createdAt: fsDate(a.createdAt),
           lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+          userTypingAt: a.userTypingAt ? fsDate(a.userTypingAt) : null,
+          adminTypingAt: a.adminTypingAt ? fsDate(a.adminTypingAt) : null,
         } as Chat;
       }
       const ref = await fs.collection(FS.chats).add({
@@ -448,6 +450,8 @@ export const Chats = {
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
         lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+        userTypingAt: a.userTypingAt ? fsDate(a.userTypingAt) : null,
+        adminTypingAt: a.adminTypingAt ? fsDate(a.adminTypingAt) : null,
       } as Chat;
     }
     const existing = await prisma.chat.findUnique({ where: { sessionId } });
@@ -469,6 +473,8 @@ export const Chats = {
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
         lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+        userTypingAt: a.userTypingAt ? fsDate(a.userTypingAt) : null,
+        adminTypingAt: a.adminTypingAt ? fsDate(a.adminTypingAt) : null,
       } as Chat;
     }
     const row = await prisma.chat.findUnique({ where: { id } });
@@ -491,6 +497,8 @@ export const Chats = {
         lastMessageAt: fsDate(a.lastMessageAt),
         createdAt: fsDate(a.createdAt),
         lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+        userTypingAt: a.userTypingAt ? fsDate(a.userTypingAt) : null,
+        adminTypingAt: a.adminTypingAt ? fsDate(a.adminTypingAt) : null,
       } as Chat;
     }
     const row = await prisma.chat.findUnique({ where: { sessionId } });
@@ -526,6 +534,8 @@ export const Chats = {
           lastMessageAt: fsDate(a.lastMessageAt),
           createdAt: fsDate(a.createdAt),
           lastReadAt: a.lastReadAt ? fsDate(a.lastReadAt) : null,
+          userTypingAt: a.userTypingAt ? fsDate(a.userTypingAt) : null,
+          adminTypingAt: a.adminTypingAt ? fsDate(a.adminTypingAt) : null,
         } as Chat;
       });
     }
@@ -561,6 +571,25 @@ export const Chats = {
     await prisma.chat.update({
       where: { id: chatId },
       data: { displayName: name },
+    });
+  },
+
+  /**
+   * Set or clear a typing indicator.
+   * who: "user" | "admin"
+   * isTyping: true → set timestamp to now; false → set to null
+   */
+  async setTyping(chatId: string, who: "user" | "admin", isTyping: boolean): Promise<void> {
+    const field = who === "user" ? "userTypingAt" : "adminTypingAt";
+    if (firebaseEnabled) {
+      await getFirestore()!.collection(FS.chats).doc(chatId).update({
+        [field]: isTyping ? new Date() : null,
+      });
+      return;
+    }
+    await prisma.chat.update({
+      where: { id: chatId },
+      data: { [field]: isTyping ? new Date() : null },
     });
   },
 

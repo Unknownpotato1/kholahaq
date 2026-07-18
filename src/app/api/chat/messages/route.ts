@@ -29,5 +29,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ messages: [] });
   }
   const messages = await Messages.listByChat(chat.id);
-  return NextResponse.json({ messages, chatId: chat.id });
+  // Return the chat object too so the client can read adminTypingAt for
+  // the live typing indicator.
+  return NextResponse.json({
+    messages,
+    chatId: chat.id,
+    chat: {
+      id: chat.id,
+      adminTypingAt: chat.adminTypingAt,
+    },
+  });
 }
