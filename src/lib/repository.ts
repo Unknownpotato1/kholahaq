@@ -579,4 +579,22 @@ export const Messages = {
     });
     return rows as unknown as Message[];
   },
+
+  /**
+   * Update a message's createdAt to a future timestamp (used for
+   * scheduled auto-replies so the client can show a typing bubble).
+   */
+  async scheduleForFuture(messageId: string, futureDate: Date): Promise<void> {
+    if (firebaseEnabled) {
+      // Find the message by ID and update its createdAt.
+      await getFirestore()!.collection(FS.messages).doc(messageId).update({
+        createdAt: futureDate,
+      });
+      return;
+    }
+    await prisma.message.update({
+      where: { id: messageId },
+      data: { createdAt: futureDate },
+    });
+  },
 };

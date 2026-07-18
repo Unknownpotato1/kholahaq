@@ -1,28 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Copy, Check, MessageCircle, Loader2 } from "lucide-react";
+import { X, ExternalLink, CreditCard, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
 import type { AccountPublic } from "@/types";
 
-const SESSION_KEY = "gomen_chat_session";
+// Razorpay hosted payment page link.
+// Replace via NEXT_PUBLIC_RAZORPAY_PAYMENT_LINK env var if needed.
+const RAZORPAY_PAYMENT_LINK =
+  process.env.NEXT_PUBLIC_RAZORPAY_PAYMENT_LINK ||
+  "https://rzp.io/rzp/lhOBr4wu";
 
-function getOrCreateSessionId(): string {
-  if (typeof window === "undefined") return "";
-  let id = localStorage.getItem(SESSION_KEY);
-  if (!id) {
-    id =
-      "anon_" +
-      Date.now().toString(36) +
-      "_" +
-      Math.random().toString(36).slice(2, 10);
-    localStorage.setItem(SESSION_KEY, id);
-  }
-  return id;
-}
+// The chat page URL customers land on after payment.
+const CHAT_PAGE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") +
+  "/chat" ||
+  "https://kholahaq.vercel.app/chat";
 
 interface BuyAccessModalProps {
   account: AccountPublic;
@@ -31,63 +24,10 @@ interface BuyAccessModalProps {
 }
 
 export function BuyAccessModal({ account, open, onClose }: BuyAccessModalProps) {
-  const [qrDataUrl, setQrDataUrl] = useState<string>("");
-  const [copied, setCopied] = useState(false);
-  const [sending, setSending] = useState(false);
-
-  // Placeholder UPI ID — replace with real one via NEXT_PUBLIC_UPI_ID env var.
-  const upiId = process.env.NEXT_PUBLIC_UPI_ID || "placeholder@upi";
-  const upiName = "Gomen";
-  const amount = account.price;
-  const note = `Gomen ${account.username}`;
-
-  useEffect(() => {
-    if (!open) return;
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(
-      upiId
-    )}&pn=${encodeURIComponent(upiName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(note)}`;
-    QRCode.toDataURL(upiUrl, {
-      width: 240,
-      margin: 2,
-      color: { dark: "#0a0a0a", light: "#ffffff" },
-    })
-      .then(setQrDataUrl)
-      .catch(() => setQrDataUrl(""));
-  }, [open, upiId, upiName, amount, note]);
-
-  async function copyUpiId() {
-    try {
-      await navigator.clipboard.writeText(upiId);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error("Couldn't copy");
-    }
-  }
-
-  async function onPaidOpenChat() {
-    setSending(true);
-    const sessionId = getOrCreateSessionId();
-    try {
-      await fetch("/api/chat/start", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      const autoText = `I want to buy access to "${account.username}" (₹${amount}). Payment screenshot attached below. Please verify and send the password.`;
-      await fetch("/api/chat/send", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ sessionId, text: autoText }),
-      });
-      onClose();
-      window.dispatchEvent(new Event("gomen:open-chat"));
-      toast.success("Chat opened — attach your payment screenshot there.");
-    } catch {
-      toast.error("Something went wrong. Please try the chat button below.");
-    } finally {
-      setSending(false);
-    }
+  function goToPayment() {
+    // Open the Razorpay payment page in a new tab.
+    window.open(RAZORPAY_PAYMENT_LINK, "_blank", "noopener,noreferrer");
+    onClose();
   }
 
   return (
@@ -109,6 +49,7 @@ export function BuyAccessModal({ account, open, onClose }: BuyAccessModalProps) 
             className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-5 py-3">
               <h2 className="text-base font-semibold">
                 Buy access — {account.username}
@@ -124,91 +65,79 @@ export function BuyAccessModal({ account, open, onClose }: BuyAccessModalProps) 
               </Button>
             </div>
 
+            {/* Body */}
             <div className="px-5 py-5">
+              {/* Amount */}
               <div className="text-center">
                 <div className="text-xs uppercase tracking-wide text-muted-foreground">
                   Amount to pay
                 </div>
-                <div className="mt-1 text-3xl font-bold">₹{amount}</div>
+                <div className="mt-1 text-3xl font-bold">₹{account.price}</div>
               </div>
 
-              <div className="mt-4 flex justify-center">
-                {qrDataUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={qrDataUrl}
-                    alt="UPI QR code"
-                    className="h-56 w-56 rounded-xl border border-border/60"
-                  />
-                ) : (
-                  <div className="grid h-56 w-56 place-items-center rounded-xl border border-border/60 bg-muted">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center justify-center gap-2 text-sm">
-                <span className="text-muted-foreground">UPI ID:</span>
-                <code className="rounded bg-muted px-2 py-0.5 font-mono text-xs">
-                  {upiId}
-                </code>
-                <button
-                  type="button"
-                  onClick={copyUpiId}
-                  className="inline-flex items-center gap-1 text-xs text-violet-600 hover:underline dark:text-violet-300"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="h-3 w-3" /> Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-3 w-3" /> Copy
-                    </>
-                  )}
-                </button>
-              </div>
-
-              <ol className="mt-5 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
-                <li>
-                  <span className="font-semibold text-foreground">1.</span> Scan
-                  the QR with any UPI app (GPay, PhonePe, Paytm) and pay ₹
-                  {amount}.
+              {/* Steps */}
+              <ol className="mt-5 space-y-2 text-sm leading-relaxed text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                    1
+                  </span>
+                  <span>
+                    Tap{" "}
+                    <span className="font-medium text-foreground">
+                      Go to payment page
+                    </span>{" "}
+                    below. You&apos;ll be taken to Razorpay&apos;s secure
+                    payment page.
+                  </span>
                 </li>
-                <li>
-                  <span className="font-semibold text-foreground">2.</span>{" "}
-                  Take a screenshot of the successful payment.
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                    2
+                  </span>
+                  <span>
+                    Pay ₹{account.price} using UPI, card, or netbanking.
+                  </span>
                 </li>
-                <li>
-                  <span className="font-semibold text-foreground">3.</span> Tap
-                  the button below — it opens chat. Attach your screenshot
-                  there.
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                    3
+                  </span>
+                  <span>
+                    After payment, you&apos;ll be redirected to a chat page.
+                    A message{" "}
+                    <span className="font-medium text-foreground">
+                      &ldquo;I&apos;ve paid, now give me access&rdquo;
+                    </span>{" "}
+                    will be sent automatically.
+                  </span>
                 </li>
-                <li>
-                  <span className="font-semibold text-foreground">4.</span> I&apos;ll
-                  verify and send the current password in the same chat. Only
-                  you can see it.
+                <li className="flex gap-2">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-500/20 text-[10px] font-bold text-violet-600 dark:text-violet-300">
+                    4
+                  </span>
+                  <span>
+                    I&apos;ll verify your payment and send the current password
+                    in the same chat. Only you can see it.
+                  </span>
                 </li>
               </ol>
 
+              {/* CTA */}
               <Button
-                onClick={onPaidOpenChat}
-                disabled={sending}
+                onClick={goToPayment}
                 className="mt-5 w-full"
                 size="lg"
               >
-                {sending ? (
-                  <>
-                    <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Opening
-                    chat…
-                  </>
-                ) : (
-                  <>
-                    <MessageCircle className="mr-2 h-4 w-4" />
-                    I&apos;ve paid — open chat to send screenshot
-                  </>
-                )}
+                <CreditCard className="mr-2 h-4 w-4" />
+                Go to payment page
+                <ExternalLink className="ml-1 h-3.5 w-3.5" />
               </Button>
+
+              {/* Chat page hint */}
+              <p className="mt-3 flex items-center justify-center gap-1 text-center text-xs text-muted-foreground">
+                <MessageCircle className="h-3 w-3" />
+                After payment you&apos;ll land on the chat page
+              </p>
             </div>
           </motion.div>
         </motion.div>

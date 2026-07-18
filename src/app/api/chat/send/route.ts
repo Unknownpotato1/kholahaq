@@ -5,12 +5,24 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// The exact message that triggers an automated reply.
+const TRIGGER_MESSAGE = "I've paid, now give me access";
+const AUTO_REPLY =
+  "Please send your email or mobile number that you used on payment page to verify your payment";
+const AUTO_REPLY_DELAY_MS = 3000;
+
 /**
  * Visitor sends a message (text and/or image).
  * Image is sent as a base64 data URL — in sandbox mode this is stored as-is
  * in SQLite. In production, the same payload is accepted but you'd typically
  * move it to Firebase Storage and store the URL. For simplicity and to keep
- * the visitor anonymous (no upload auth), we accept data URLs up to ~2 MB.
+ * the visitor anonymous (no upload auth), we accept data URLs up to ~900 KB.
+ *
+ * AUTO-REPLY: When the user's text is EXACTLY "I've paid, now give me access",
+ * the server also creates an admin reply dated 3 seconds in the future. The
+ * client filters out future-dated messages and shows a typing bubble until
+ * the message becomes visible. For any other message, no auto-reply fires
+ * and the admin replies manually.
  */
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -37,8 +49,6 @@ export async function POST(req: NextRequest) {
   if (text.length > 4000) {
     return NextResponse.json({ error: "text_too_long" }, { status: 400 });
   }
-  // Firestore documents have a 1 MB max size, so the data URL must be
-  // comfortably under that (accounting for the rest of the doc).
   if (imageUrl.length > 900_000) {
     return NextResponse.json({ error: "image_too_large" }, { status: 413 });
   }
@@ -50,5 +60,30 @@ export async function POST(req: NextRequest) {
     text: text || null,
     imageUrl: imageUrl || null,
   });
-  return NextResponse.json({ ok: true, message });
+
+  // Auto-reply scheduling — only for the exact trigger message.
+  let pendingAutoReply: Date | null = null;
+  if (text === TRIGGER_MESSAGE) {
+    pendingAutoReply = new Date(Date.now() + AUTO_REPLY_DELAY_MS);
+    await Messages.create({
+      chatId: chat.id,
+      sender: "admin",
+      text: AUTO_REPLY,
+      passwordReveal: false,
+    }).then((msg) => {
+      // Re-write the createdAt to 3s in the future so the client can show
+      // a typing bubble until then. We do this via a direct repository
+      // update if available; otherwise the message just appears immediately.
+      // For Firestore we update the doc; for Prisma we update the row.
+      // Both paths are handled in Messages.scheduleForFuture below.
+      return Messages.scheduleForFuture(msg.id, pendingAutoReply!);
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    message,
+    autoReplyScheduled: !!pendingAutoReply,
+    autoReplyAt: pendingAutoReply?.toISOString() || null,
+  });
 }
