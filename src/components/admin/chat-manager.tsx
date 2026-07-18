@@ -13,6 +13,7 @@ import {
   Copy,
   Check,
   ArrowLeft,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -273,6 +274,25 @@ export function ChatManager() {
     }
   }
 
+  async function onDeleteChat(chatId: string) {
+    if (!confirm("Delete this conversation permanently? All messages will be lost.")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/chat/${chatId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("delete_failed");
+      toast.success("Chat deleted");
+      if (selectedId === chatId) {
+        backToList();
+      }
+      loadChats();
+    } catch {
+      toast.error("Failed to delete chat");
+    }
+  }
+
   // A chat is "unread" if lastMessageAt > lastReadAt (or never read).
   function isUnread(chat: Chat): boolean {
     const lastMessageAt = new Date(chat.lastMessageAt).getTime();
@@ -319,30 +339,42 @@ export function ChatManager() {
             chats.map((c) => {
               const unread = isUnread(c);
               return (
-                <button
+                <div
                   key={c.id}
-                  onClick={() => openChat(c.id)}
-                  className={`flex w-full items-center justify-between gap-2 border-b border-border/40 px-3 py-2.5 text-left transition hover:bg-accent/50 ${
+                  className={`group flex items-center gap-1 border-b border-border/40 transition hover:bg-accent/50 ${
                     selectedId === c.id ? "bg-accent/70" : ""
                   }`}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium">
-                        {c.displayName}
-                      </span>
-                      {unread && (
-                        <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
-                      )}
+                  <button
+                    onClick={() => openChat(c.id)}
+                    className="flex min-w-0 flex-1 items-center justify-between gap-2 px-3 py-2.5 text-left"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate text-sm font-medium">
+                          {c.displayName}
+                        </span>
+                        {unread && (
+                          <span className="h-2 w-2 shrink-0 rounded-full bg-red-500" />
+                        )}
+                      </div>
+                      <div className="truncate text-[10px] text-muted-foreground">
+                        {new Date(c.lastMessageAt).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      {new Date(c.lastMessageAt).toLocaleString()}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-[10px]">
-                    {c.sessionId.slice(0, 6)}
-                  </Badge>
-                </button>
+                    <Badge variant="outline" className="text-[10px]">
+                      {c.sessionId.slice(0, 6)}
+                    </Badge>
+                  </button>
+                  <button
+                    onClick={() => onDeleteChat(c.id)}
+                    className="mr-2 grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+                    aria-label="Delete chat"
+                    title="Delete chat"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               );
             })}
         </ScrollArea>

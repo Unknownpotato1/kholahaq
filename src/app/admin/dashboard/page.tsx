@@ -123,6 +123,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* STAT CARDS */}
+      <div className="mt-16">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <StatCard
           icon={<Users className="h-4 w-4" />}
@@ -180,6 +181,7 @@ export default function AdminDashboardPage() {
           loading={loading}
           tint="violet"
         />
+      </div>
       </div>
 
       {/* CHART */}

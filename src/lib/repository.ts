@@ -549,6 +549,37 @@ export const Chats = {
       data: { lastReadAt: new Date() },
     });
   },
+
+  /** Update the visitor's display name. */
+  async updateDisplayName(chatId: string, name: string): Promise<void> {
+    if (firebaseEnabled) {
+      await getFirestore()!.collection(FS.chats).doc(chatId).update({
+        displayName: name,
+      });
+      return;
+    }
+    await prisma.chat.update({
+      where: { id: chatId },
+      data: { displayName: name },
+    });
+  },
+
+  /** Permanently delete a chat and all its messages. */
+  async delete(chatId: string): Promise<void> {
+    if (firebaseEnabled) {
+      const fs = getFirestore()!;
+      // Delete all messages in this chat.
+      const msgSnap = await fs
+        .collection(FS.messages)
+        .where("chatId", "==", chatId)
+        .get();
+      await Promise.all(msgSnap.docs.map((d) => d.ref.delete()));
+      // Delete the chat doc.
+      await fs.collection(FS.chats).doc(chatId).delete();
+      return;
+    }
+    await prisma.chat.delete({ where: { id: chatId } });
+  },
 };
 
 // ============ MESSAGE REPO ============

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import type { Message } from "@/types";
 
 const SESSION_KEY = "gomen_chat_session";
+const NAME_KEY = "gomen_chat_name";
 const AUTO_SEND_KEY = "gomen_chat_autosent";
 const TRIGGER_MESSAGE = "I've paid, now give me access";
 
@@ -63,6 +64,9 @@ export default function ChatPage() {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [typingPending, setTypingPending] = useState(false);
+  const [needsName, setNeedsName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [nameSubmitted, setNameSubmitted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -70,6 +74,11 @@ export default function ChatPage() {
 
   useEffect(() => {
     setSessionId(getOrCreateSessionId());
+    // Check if the visitor has a saved name.
+    const savedName = localStorage.getItem(NAME_KEY);
+    if (!savedName) {
+      setNeedsName(true);
+    }
   }, []);
 
   const loadMessages = useCallback(async (sid: string) => {
@@ -98,15 +107,18 @@ export default function ChatPage() {
   }, []);
 
   // Bootstrap: ensure chat thread exists + auto-send trigger message once.
+  // Wait for the visitor to enter their name first (if needed).
   useEffect(() => {
     if (!sessionId) return;
+    if (needsName && !nameSubmitted) return;
     (async () => {
       setLoading(true);
       try {
+        const savedName = localStorage.getItem(NAME_KEY) || "";
         await fetch("/api/chat/start", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, displayName: savedName || undefined }),
         });
         await loadMessages(sessionId);
 
@@ -122,7 +134,15 @@ export default function ChatPage() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId]);
+  }, [sessionId, nameSubmitted, needsName]);
+
+  function onSubmitName() {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return;
+    localStorage.setItem(NAME_KEY, trimmed);
+    setNeedsName(false);
+    setNameSubmitted(true);
+  }
 
   async function sendTriggerMessage(sid: string) {
     setBusy(true);
@@ -245,6 +265,42 @@ export default function ChatPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-2xl flex-col px-4 py-6 sm:px-6">
+      {/* Name prompt gate */}
+      {needsName ? (
+        <div className="mx-auto flex w-full max-w-sm flex-col justify-center py-16">
+          <div className="rounded-2xl border border-border/60 bg-background/60 p-6 backdrop-blur-xl">
+            <div className="mb-4 text-center">
+              <span className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white shadow-lg shadow-fuchsia-500/30">
+                <Shield className="h-6 w-6" />
+              </span>
+              <h1 className="text-xl font-semibold">Before we chat…</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                What should I call you? This helps me find our conversation.
+              </p>
+            </div>
+            <Input
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onSubmitName();
+              }}
+              placeholder="Your name"
+              maxLength={40}
+              autoFocus
+              className="h-11"
+            />
+            <Button
+              onClick={onSubmitName}
+              disabled={!nameInput.trim()}
+              className="mt-3 w-full"
+              size="lg"
+            >
+              Continue to chat
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -349,6 +405,8 @@ export default function ChatPage() {
           </Button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

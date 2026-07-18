@@ -60,3 +60,28 @@ export async function POST(
   });
   return NextResponse.json({ ok: true, message });
 }
+
+/** DELETE /api/admin/chat/[chatId] — permanently delete a chat + messages. */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ chatId: string }> }
+) {
+  const session = await requireAdmin();
+  const { chatId } = await params;
+
+  const chat = await Chats.getById(chatId);
+  if (!chat) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  await Chats.delete(chatId);
+
+  await Logs.create({
+    action: "chat_deleted",
+    targetId: chatId,
+    detail: `deleted chat for ${chat.displayName} (${chat.sessionId.slice(0, 16)})`,
+    adminUid: session.adminUid,
+  });
+
+  return NextResponse.json({ ok: true });
+}

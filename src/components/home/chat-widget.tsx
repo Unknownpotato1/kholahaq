@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import type { Message } from "@/types";
 
 const SESSION_KEY = "gomen_chat_session";
+const NAME_KEY = "gomen_chat_name";
 
 function getOrCreateSessionId(): string {
   if (typeof window === "undefined") return "";
@@ -22,6 +23,16 @@ function getOrCreateSessionId(): string {
     localStorage.setItem(SESSION_KEY, id);
   }
   return id;
+}
+
+function getSavedName(): string {
+  if (typeof window === "undefined") return "";
+  return localStorage.getItem(NAME_KEY) || "";
+}
+
+function saveName(name: string): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(NAME_KEY, name);
 }
 
 /** Compress an image File to a JPEG data URL ≤ ~900 KB (Firestore doc limit). */
@@ -57,25 +68,121 @@ async function fileToCompressedDataUrl(file: File): Promise<string> {
 
 /**
  * ChatWidgetButton — the visible "Chat with me" button (used on home page).
- * Clicking it dispatches a global event that the ChatWidgetModal listens for.
+ * On first click, asks the visitor for their name. On subsequent clicks,
+ * opens the chat directly (name is remembered in localStorage).
  */
 export function ChatWidgetButton() {
+  const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [name, setName] = useState("");
+
+  function onClick() {
+    const saved = getSavedName();
+    if (saved) {
+      window.dispatchEvent(new Event("gomen:open-chat"));
+    } else {
+      setName("");
+      setShowNamePrompt(true);
+    }
+  }
+
+  async function onConfirmName() {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    saveName(trimmed);
+    setShowNamePrompt(false);
+    // Ensure the chat thread exists with the visitor's name.
+    const sessionId = getOrCreateSessionId();
+    try {
+      await fetch("/api/chat/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId, displayName: trimmed }),
+      });
+    } catch {
+      /* ignore — chat will still open */
+    }
+    window.dispatchEvent(new Event("gomen:open-chat"));
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-      className="mx-auto w-full max-w-2xl"
-    >
-      <Button
-        onClick={() => window.dispatchEvent(new Event("gomen:open-chat"))}
-        size="lg"
-        className="h-14 w-full rounded-2xl text-base font-medium shadow-xl shadow-violet-500/20"
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+        className="mx-auto w-full max-w-2xl"
       >
-        <MessageCircle className="mr-2 h-5 w-5" />
-        Chat with me
-      </Button>
-    </motion.div>
+        <Button
+          onClick={onClick}
+          size="lg"
+          className="h-14 w-full rounded-2xl text-base font-medium shadow-xl shadow-violet-500/20"
+        >
+          <MessageCircle className="mr-2 h-5 w-5" />
+          Chat with me
+        </Button>
+      </motion.div>
+
+      {/* Name prompt modal */}
+      <AnimatePresence>
+        {showNamePrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowNamePrompt(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+              className="w-full max-w-sm overflow-hidden rounded-2xl border border-border/60 bg-background shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-border/60 bg-gradient-to-r from-violet-500/10 to-fuchsia-500/10 px-5 py-3">
+                <h2 className="text-base font-semibold">Before we chat…</h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 rounded-full"
+                  onClick={() => setShowNamePrompt(false)}
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="px-5 py-5">
+                <p className="mb-3 text-sm text-muted-foreground">
+                  What should I call you? Your name helps me find our
+                  conversation later.
+                </p>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") onConfirmName();
+                  }}
+                  placeholder="Your name"
+                  maxLength={40}
+                  autoFocus
+                  className="h-11"
+                />
+                <Button
+                  onClick={onConfirmName}
+                  disabled={!name.trim()}
+                  className="mt-3 w-full"
+                  size="lg"
+                >
+                  Start chat
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
