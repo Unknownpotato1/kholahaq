@@ -2,14 +2,21 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
-import { Send, Image as ImageIcon, Loader2, MessageCircle, RefreshCw } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, MessageCircle, RefreshCw, KeyRound, XCircle, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import type { Chat, Message } from "@/types";
+import type { Chat, Message, AccountPublic } from "@/types";
 
 export function ChatManager() {
   const [chats, setChats] = useState<Chat[] | null>(null);
@@ -18,8 +25,22 @@ export function ChatManager() {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [accounts, setAccounts] = useState<AccountPublic[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+  const [adminActionBusy, setAdminActionBusy] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load accounts for the "Send password" selector.
+  useEffect(() => {
+    fetch("/api/admin/accounts?limit=100", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        setAccounts(d.items || []);
+        if (d.items?.length > 0) setSelectedAccountId(d.items[0].id);
+      })
+      .catch(() => {});
+  }, []);
 
   const loadChats = useCallback(async () => {
     setChats(null);
@@ -172,6 +193,52 @@ export function ChatManager() {
     }
   }
 
+  async function onSendPassword() {
+    if (!selectedId || !selectedAccountId || adminActionBusy) return;
+    setAdminActionBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/chat/${selectedId}/send-password`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ accountId: selectedAccountId }),
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "send_failed");
+      }
+      const data = await res.json();
+      setMessages((m) => [...m, data.message]);
+      toast.success(`Password for ${data.username} sent`);
+      loadChats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to send password");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
+  async function onReject() {
+    if (!selectedId || adminActionBusy) return;
+    setAdminActionBusy(true);
+    try {
+      const res = await fetch(`/api/admin/chat/${selectedId}/reject`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error("reject_failed");
+      const data = await res.json();
+      setMessages((m) => [...m, data.message]);
+      toast.success("Rejection sent");
+      loadChats();
+    } catch {
+      toast.error("Failed to reject");
+    } finally {
+      setAdminActionBusy(false);
+    }
+  }
+
   return (
     <div className="grid gap-4 lg:grid-cols-[20rem_1fr]">
       {/* Chat list */}
@@ -252,6 +319,51 @@ export function ChatManager() {
                   <AdminMessageBubble key={m.id} message={m} />
                 ))}
             </div>
+
+            {/* Admin actions: Send password + Reject */}
+            <div className="border-t border-border/60 bg-muted/20 p-2">
+              <div className="mb-2 flex items-center gap-2">
+                <KeyRound className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+                <Select
+                  value={selectedAccountId}
+                  onValueChange={setSelectedAccountId}
+                >
+                  <SelectTrigger className="h-8 flex-1 text-xs">
+                    <SelectValue placeholder="Select account…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.username} (₹{a.price})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  onClick={onSendPassword}
+                  disabled={adminActionBusy || !selectedAccountId}
+                  className="h-8"
+                >
+                  {adminActionBusy ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    "Approve & Send Password"
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onReject}
+                  disabled={adminActionBusy}
+                  className="h-8"
+                >
+                  <XCircle className="mr-1 h-3.5 w-3.5" /> Reject
+                </Button>
+              </div>
+            </div>
+
+            {/* Composer */}
             <div className="border-t border-border/60 p-2">
               <div className="flex items-end gap-1">
                 <input
@@ -312,10 +424,57 @@ export function ChatManager() {
 
 function AdminMessageBubble({ message }: { message: Message }) {
   const isAdmin = message.sender === "admin";
+  const [copied, setCopied] = useState(false);
   const time = new Date(message.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  // Password reveal message — special prominent styling.
+  if (message.passwordReveal) {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex justify-end"
+      >
+        <div className="max-w-[85%] rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+            <KeyRound className="h-3 w-3" /> Password sent
+          </div>
+          <code className="block break-all font-mono text-base font-semibold text-foreground">
+            {message.text}
+          </code>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(message.text || "");
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                } catch {}
+              }}
+              className="inline-flex items-center gap-1 text-xs text-emerald-700 hover:underline dark:text-emerald-300"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3 w-3" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3" /> Copy
+                </>
+              )}
+            </button>
+            <span className="text-[10px] text-muted-foreground">{time}</span>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       layout

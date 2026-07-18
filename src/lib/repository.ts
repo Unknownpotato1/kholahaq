@@ -529,11 +529,13 @@ export const Messages = {
     sender: "user" | "admin";
     text?: string | null;
     imageUrl?: string | null;
+    passwordReveal?: boolean;
   }): Promise<Message> {
     if (firebaseEnabled) {
       const fs = getFirestore()!;
       const ref = await fs.collection(FS.messages).add({
         ...input,
+        passwordReveal: input.passwordReveal || false,
         createdAt: new Date(),
       });
       await Chats.touch(input.chatId);
@@ -546,6 +548,7 @@ export const Messages = {
         sender: input.sender,
         text: input.text || null,
         imageUrl: input.imageUrl || null,
+        passwordReveal: input.passwordReveal || false,
       },
     });
     await Chats.touch(input.chatId);

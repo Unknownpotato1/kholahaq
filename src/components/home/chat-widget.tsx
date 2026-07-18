@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MessageCircle, X, Send, Image as ImageIcon, Loader2 } from "lucide-react";
+import { MessageCircle, X, Send, Image as ImageIcon, Loader2, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
@@ -359,10 +359,52 @@ export function ChatWidget() {
 
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.sender === "user";
+  const [copied, setCopied] = useState(false);
   const time = new Date(message.createdAt).toLocaleTimeString([], {
     hour: "2-digit",
     minute: "2-digit",
   });
+
+  // Password reveal — prominent emerald card with copy button.
+  if (message.passwordReveal) {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[90%] rounded-2xl border-2 border-emerald-500/40 bg-emerald-500/10 px-4 py-3">
+          <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+            🔑 Your password
+          </div>
+          <code className="block break-all font-mono text-base font-semibold text-foreground">
+            {message.text}
+          </code>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(message.text || "");
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                } catch {}
+              }}
+              className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-500/30 dark:text-emerald-300"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3 w-3" /> Copied
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3 w-3" /> Copy password
+                </>
+              )}
+            </button>
+            <span className="text-[10px] text-muted-foreground">{time}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div

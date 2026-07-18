@@ -2,19 +2,19 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Lock, ArrowRight, SearchX, Loader2 } from "lucide-react";
+import { Search, Lock, ArrowRight, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/shared/copy-button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BuyAccessModal } from "@/components/search/buy-access-modal";
 import { toast } from "sonner";
 import type { AccountPublic } from "@/types";
 
 export default function SearchPageInner() {
-  const router = useRouter();
   const params = useSearchParams();
   const initialQ = params.get("q") || "";
   const [q, setQ] = useState(initialQ);
@@ -216,120 +216,24 @@ function AccountCard({ account }: { account: AccountPublic }) {
 }
 
 function BuyButton({ account }: { account: AccountPublic }) {
-  const [busy, setBusy] = useState(false);
-  const router = useRouter();
-
-  async function onBuy() {
-    setBusy(true);
-    try {
-      const orderRes = await fetch("/api/payment/create-order", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accountId: account.id }),
-      });
-      if (!orderRes.ok) throw new Error("order_failed");
-      const order = await orderRes.json();
-
-      const paymentId = await openCheckout(order, account);
-      if (!paymentId) throw new Error("payment_cancelled");
-
-      const verifyRes = await fetch("/api/payment/verify", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          orderId: order.orderId,
-          paymentId,
-          signature: order.mock ? "mock_signature" : "razorpay_checkout_signature",
-          paymentDbId: order.paymentDbId,
-        }),
-      });
-      if (!verifyRes.ok) {
-        const err = await verifyRes.json().catch(() => ({}));
-        throw new Error(err.error || "verify_failed");
-      }
-      const data = await verifyRes.json();
-      toast.success("Payment verified! Redirecting to unlock…");
-      setTimeout(() => router.push(data.redirectTo), 600);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "payment_failed";
-      if (msg === "payment_cancelled") toast.info("Payment cancelled.");
-      else toast.error("Payment failed. Please retry.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const [modalOpen, setModalOpen] = useState(false);
 
   return (
-    <Button onClick={onBuy} disabled={busy} size="lg" className="min-w-32">
-      {busy ? (
-        <>
-          <Loader2 className="mr-1 h-4 w-4 animate-spin" /> Processing…
-        </>
-      ) : (
-        <>
-          Buy Access <ArrowRight className="ml-1 h-4 w-4" />
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        onClick={() => setModalOpen(true)}
+        size="lg"
+        className="min-w-32"
+      >
+        Buy Access <ArrowRight className="ml-1 h-4 w-4" />
+      </Button>
+      <BuyAccessModal
+        account={account}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
+    </>
   );
-}
-
-async function openCheckout(
-  order: {
-    orderId: string;
-    amount: number;
-    keyId: string;
-    mock: boolean;
-    username: string;
-  },
-  account: AccountPublic
-): Promise<string | null> {
-  if (order.mock) {
-    await new Promise((r) => setTimeout(r, 800));
-    return `mock_pay_${Date.now()}`;
-  }
-  return new Promise((resolve, reject) => {
-    const src = "https://checkout.razorpay.com/v1/checkout.js";
-    const existing = document.querySelector(`script[src="${src}"]`);
-    const finish = () => {
-      const Razorpay = (
-        window as unknown as {
-          Razorpay?: new (opts: unknown) => {
-            on: (e: string, cb: () => void) => void;
-            open: () => void;
-          };
-        }
-      ).Razorpay;
-      if (!Razorpay) {
-        reject(new Error("checkout_unavailable"));
-        return;
-      }
-      const opts = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: "INR",
-        name: "Gomen",
-        description: `Unlock ${account.username}`,
-        order_id: order.orderId,
-        handler: (resp: { razorpay_payment_id: string }) =>
-          resolve(resp.razorpay_payment_id),
-        modal: { ondismiss: () => resolve("") },
-        theme: { color: "#7c3aed" },
-      };
-      const rz = new Razorpay(opts);
-      rz.on("payment.failed", () => resolve(""));
-      rz.open();
-    };
-    if (existing) finish();
-    else {
-      const s = document.createElement("script");
-      s.src = src;
-      s.async = true;
-      s.onload = finish;
-      s.onerror = () => reject(new Error("checkout_unavailable"));
-      document.body.appendChild(s);
-    }
-  });
 }
 
 function SearchSkeleton() {

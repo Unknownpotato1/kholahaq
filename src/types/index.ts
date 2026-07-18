@@ -105,5 +105,6 @@ export interface Message {
   sender: "user" | "admin";
   text?: string | null;
   imageUrl?: string | null;
+  passwordReveal?: boolean;
   createdAt: Date | string;
 }

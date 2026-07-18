@@ -83,14 +83,18 @@ model Chat {
 }
 
 model Message {
-  id        String   @id @default(cuid())
-  chatId    String
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
-  sender    String // "user" | "admin"
-  text      String?
+  id              String   @id @default(cuid())
+  chatId          String
+  chat            Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  sender          String // "user" | "admin"
+  text            String?
   // In sandbox: data URL (base64). In prod: Firebase Storage URL.
-  imageUrl  String?
-  createdAt DateTime @default(now())
+  imageUrl        String?
+  // True when the admin sent the decrypted current password via this message.
+  // Rendered with special styling + copy button. Only that chat's session
+  // owner can see it (chats are session-scoped).
+  passwordReveal  Boolean  @default(false)
+  createdAt       DateTime @default(now())
 
   @@index([chatId])
 }
