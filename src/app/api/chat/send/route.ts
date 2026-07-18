@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Chats, Messages } from "@/lib/repository";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { notifyTelegram } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,13 +72,21 @@ export async function POST(req: NextRequest) {
       text: AUTO_REPLY,
       passwordReveal: false,
     }).then((msg) => {
-      // Re-write the createdAt to 3s in the future so the client can show
-      // a typing bubble until then. We do this via a direct repository
-      // update if available; otherwise the message just appears immediately.
-      // For Firestore we update the doc; for Prisma we update the row.
-      // Both paths are handled in Messages.scheduleForFuture below.
       return Messages.scheduleForFuture(msg.id, pendingAutoReply!);
     });
+  }
+
+  // Push notification to admin via Telegram.
+  // Skip the auto-trigger message (it's the same every time and would spam).
+  // For all other messages — including the user's reply with their email/phone —
+  // notify so the admin can respond quickly.
+  if (text !== TRIGGER_MESSAGE) {
+    // Fire-and-forget; never await.
+    notifyTelegram({
+      sessionId,
+      text: text || null,
+      hasImage: !!imageUrl,
+    }).catch(() => {});
   }
 
   return NextResponse.json({
