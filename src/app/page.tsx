@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
 import { HomeSearch } from "@/components/home/home-search";
-import { ChatWidget } from "@/components/home/chat-widget";
+import { ChatWidgetButton } from "@/components/home/chat-widget";
 import { EntryDisclaimer } from "@/components/home/entry-disclaimer";
 
 const STEPS = [
@@ -42,7 +42,7 @@ export default function HomePage() {
             transition={{ duration: 0.4, delay: 0.1 }}
             className="mt-4 w-full"
           >
-            <ChatWidget />
+            <ChatWidgetButton />
           </motion.div>
         </div>
       </section>

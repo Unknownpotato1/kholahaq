@@ -55,7 +55,35 @@ async function fileToCompressedDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.7);
 }
 
-export function ChatWidget() {
+/**
+ * ChatWidgetButton — the visible "Chat with me" button (used on home page).
+ * Clicking it dispatches a global event that the ChatWidgetModal listens for.
+ */
+export function ChatWidgetButton() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
+      className="mx-auto w-full max-w-2xl"
+    >
+      <Button
+        onClick={() => window.dispatchEvent(new Event("gomen:open-chat"))}
+        size="lg"
+        className="h-14 w-full rounded-2xl text-base font-medium shadow-xl shadow-violet-500/20"
+      >
+        <MessageCircle className="mr-2 h-5 w-5" />
+        Chat with me
+      </Button>
+    </motion.div>
+  );
+}
+
+/**
+ * ChatWidgetModal — the chat overlay (mounted globally in layout so the
+ * "I've paid" flow from the search page can open it).
+ */
+export function ChatWidgetModal() {
   const [open, setOpen] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -128,11 +156,8 @@ export function ChatWidget() {
     }
   }, [messages, open]);
 
-  function onOpen() {
-    setOpen(true);
-  }
-
-  // Allow other components (e.g. the "talk to me" link) to open the chat.
+  // Allow other components (e.g. the "Chat with me" button, "talk to me"
+  // link, or the "I've paid" button in BuyAccessModal) to open the chat.
   useEffect(() => {
     const handler = () => setOpen(true);
     window.addEventListener("gomen:open-chat", handler);
@@ -219,24 +244,7 @@ export function ChatWidget() {
 
   return (
     <>
-      {/* Full-width "Chat with me" button — matches search bar width */}
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut", delay: 0.2 }}
-        className="mx-auto w-full max-w-2xl"
-      >
-        <Button
-          onClick={onOpen}
-          size="lg"
-          className="h-14 w-full rounded-2xl text-base font-medium shadow-xl shadow-violet-500/20"
-        >
-          <MessageCircle className="mr-2 h-5 w-5" />
-          Chat with me
-        </Button>
-      </motion.div>
-
-      {/* Chat modal overlay */}
+      {/* Chat modal overlay (mounted globally) */}
       <AnimatePresence>
         {open && (
           <motion.div

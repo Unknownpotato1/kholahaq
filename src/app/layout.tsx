@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Header } from "@/components/shared/header";
 import { Footer } from "@/components/shared/footer";
 import { ServiceWorkerRegister } from "@/components/shared/sw-register";
+import { ChatWidgetModal } from "@/components/home/chat-widget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -93,6 +94,7 @@ export default function RootLayout({
           <Footer />
           <Toaster position="top-center" richColors closeButton />
           <ServiceWorkerRegister />
+          <ChatWidgetModal />
         </ThemeProvider>
       </body>
     </html>
